@@ -1,0 +1,118 @@
+import funkin.modding.module.Module;
+import funkin.play.PlayState;
+
+class NoteColors extends Module {
+    // BFAli Klasik Palet: 0: Sol (Koyu Mavi), 1: Aşağı (Mavi), 2: Yukarı (Parlak Mercan/Kırmızı), 3: Sağ (Canlı Kırmızı)
+    var targetColors = [0xFF1A45C7, 0xFF0077FF, 0xFFFF3355, 0xFFFF1111];
+
+    public function new() {
+        super("NoteColors");
+    }
+
+    override function onUpdate(event:UpdateScriptEvent) {
+        super.onUpdate(event);
+        var state = PlayState.instance;
+        if (state == null) return;
+
+        updateStrumline(state.playerStrumline);
+        updateStrumline(state.opponentStrumline);
+    }
+
+    function updateStrumline(strumline:Dynamic) {
+        if (strumline == null) return;
+
+        // 1. Hedef okları (Strumline)
+        if (strumline.strumlineNotes != null) {
+            for (i in 0...strumline.strumlineNotes.members.length) {
+                var rec = strumline.strumlineNotes.members[i];
+                if (rec != null) {
+                    var target = targetColors[i % 4];
+                    if (rec.color != target) rec.color = target;
+                }
+            }
+        }
+
+        // 2. Düşen notalar (VS Sky vb. özel kind isimli standart notalar dahil)
+        if (strumline.notes != null) {
+            for (note in strumline.notes.members) {
+                if (note != null && note.alive && isNormalNote(note)) {
+                    var dir = getPureDir(note);
+                    var target = targetColors[dir];
+                    if (note.color != target) note.color = target;
+                }
+            }
+        }
+
+        // 3. Uzun basılan nota kuyrukları (Sustain Trail)
+        if (strumline.holdNotes != null) {
+            for (hold in strumline.holdNotes.members) {
+                if (hold != null && hold.alive && isNormalNote(hold)) {
+                    var dir = getPureDir(hold);
+                    var target = targetColors[dir];
+                    if (hold.color != target) hold.color = target;
+                }
+            }
+        }
+
+        // 4. Patlama efektleri (Note Splashes)
+        if (strumline.noteSplashes != null) {
+            for (splash in strumline.noteSplashes.members) {
+                if (splash != null && splash.alive) {
+                    var dir = getPureDir(splash);
+                    var target = targetColors[dir];
+                    if (splash.color != target) splash.color = target;
+                }
+            }
+        }
+    }
+
+    function getPureDir(obj:Dynamic):Int {
+        try {
+            if (obj.noteDirection != null) return Std.int(Math.abs(obj.noteDirection)) % 4;
+        } catch (e:Dynamic) {}
+        try {
+            if (obj.direction != null) return Std.int(Math.abs(obj.direction)) % 4;
+        } catch (e:Dynamic) {}
+        try {
+            if (obj.noteData != null) {
+                if (obj.noteData.data != null) return Std.int(Math.abs(obj.noteData.data)) % 4;
+                if (Std.isOfType(obj.noteData, Int)) return Std.int(Math.abs(obj.noteData)) % 4;
+            }
+        } catch (e:Dynamic) {}
+
+        var name = "";
+        try {
+            if (obj.animation != null && obj.animation.curAnim != null && obj.animation.curAnim.name != null) name += obj.animation.curAnim.name;
+            if (obj.frame != null && obj.frame.name != null) name += " " + obj.frame.name;
+        } catch (e:Dynamic) {}
+
+        if (name != "") {
+            if (name.indexOf("Left") != -1 || name.indexOf("Purple") != -1 || name.indexOf("purple") != -1 || name.indexOf("left") != -1) return 0;
+            if (name.indexOf("Down") != -1 || name.indexOf("Blue") != -1 || name.indexOf("blue") != -1 || name.indexOf("down") != -1) return 1;
+            if (name.indexOf("Up") != -1 || name.indexOf("Green") != -1 || name.indexOf("green") != -1 || name.indexOf("up") != -1) return 2;
+            if (name.indexOf("Right") != -1 || name.indexOf("Red") != -1 || name.indexOf("red") != -1 || name.indexOf("right") != -1) return 3;
+        }
+
+        return 0;
+    }
+
+    function isNormalNote(item:Dynamic):Bool {
+        if (item == null) return false;
+        try {
+            var k = item.kind;
+            if (k == null || k == "") return true;
+
+            var lower = Std.string(k).toLowerCase();
+            if (lower.indexOf("hurt") != -1 || lower.indexOf("mine") != -1 || 
+                lower.indexOf("kill") != -1 || lower.indexOf("death") != -1 || 
+                lower.indexOf("saw") != -1 || lower.indexOf("sword") != -1 || 
+                lower.indexOf("fire") != -1 || lower.indexOf("poison") != -1 || 
+                lower.indexOf("danger") != -1 || lower.indexOf("warning") != -1 || 
+                lower.indexOf("dodge") != -1 || lower.indexOf("trap") != -1 || 
+                lower.indexOf("bullet") != -1 || lower.indexOf("static") != -1) {
+                return false;
+            }
+        } catch (e:Dynamic) {}
+        return true;
+    }
+}
